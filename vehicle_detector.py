@@ -9,7 +9,9 @@ from scipy.ndimage.measurements import label
 class VehicleDetector:
     def __init__(self, clf, scaler, overlap):
         self.heatmap = None
-        self.sizes = [100]
+        self.ytop = 400
+        self.ybottom = 650
+        self.sizes = [64, 32]
         self.clf = clf
         self.scaler = scaler
         self.overlap = overlap
@@ -22,14 +24,14 @@ class VehicleDetector:
         return res
 
     @staticmethod
-    def get_windows(img, y_start_stop, window_size, overlap=0.7):
+    def get_windows(img, y_start_stop, window_size, overlap=0.5):
         h, w, c = img.shape
         xspan = w
         yspan = y_start_stop[1] - y_start_stop[0]
 
-        step = int(window_size * overlap)
-        x_windows = (xspan // step) - 1
-        y_windows = (yspan // step) - 1
+        step = int(window_size * (1.0 - overlap))
+        x_windows = (xspan // step)
+        y_windows = (yspan // step)
 
         windows = []
         for y in range(y_windows):
@@ -43,25 +45,18 @@ class VehicleDetector:
         return windows
 
     def search_windows(self, img, windows):
-        features_list = []
-        detected = []
+        features = []
         for window in windows:
             x1, y1 = window[0]
             x2, y2 = window[1]
             test_img = img[y1:y2, x1:x2, :]
             assert test_img is not None
             test_img = cv2.resize(test_img, (64, 64))
-            features = get_features(test_img)
-            features_list.append(features)
-            features = self.scaler.transform(features.reshape(1,-1))
-            prediction = self.clf.predict(features)
-            if prediction == 1:
-                detected.append(window)
+            features.append(get_features(test_img))
 
-        return detected
-        features_list = np.array(features_list)
-        features_list = self.scaler.transform(features_list)
-        prediction = self.clf.predict(features_list)
+        features_tensor = np.array(features)
+        features_tensor = self.scaler.transform(features_tensor)
+        prediction = self.clf.predict(features_tensor)
 
         return [windows[i] for i in range(len(windows)) if prediction[i] == 1]
 
@@ -90,27 +85,34 @@ class VehicleDetector:
         return bboxes
 
     def process_image(self, img):
-        #if self.heatmap is None:
-        #    self.heatmap = np.zeros_like(img[:, :, 0])
+        if self.heatmap is None:
+            self.heatmap = np.zeros_like(img[:, :, 0])
 
-        heatmap = np.zeros_like(img[:, :, 0]).astype(np.float32)
-        heatmap = np.clip(heatmap, 0, 255)
+        self.heatmap = (self.heatmap / 2).astype(np.uint8)
 
-        #self.heatmap -= 5
-        #self.heatmap = np.clip(self.heatmap, 0, 255)
-
-        h, w, c = img.shape
-        height = h // 2
+        height = (self.ybottom - self.ytop)
         for i, size in enumerate(self.sizes):
-            y_start_stop = (height, height + height // (i + 1))
+            y_start_stop = (self.ytop, self.ytop + height // (i + 1))
 
             windows = self.get_windows(img, y_start_stop, size, self.overlap)
             detected = self.search_windows(img, windows)
             self.add_heat(detected)
 
-        self.apply_threashold(2)
+        self.heatmap = np.clip(self.heatmap, 0, 255)
+        self.apply_threashold(5)
         labels = label(self.heatmap)
         bboxes = self.get_labeled_boxes(labels)
 
-        return self.draw_boxes(img, bboxes)
+        res = self.draw_boxes(img, bboxes)
+        #res = self.display_heat(res, self.heatmap)
 
+        return res
+
+    def display_heat(self, img,  mask):
+        mask = np.dstack([mask, mask, mask])
+        mask = cv2.resize(mask*50, None, fx=1 / 2, fy=1 / 2, interpolation=cv2.INTER_CUBIC)
+        return self.add_display(img, mask, x_offset=img.shape[1]*0.5, y_offset=10)
+
+    def add_display(self, result, display, x_offset, y_offset):
+        result[y_offset: y_offset + display.shape[0], x_offset: x_offset + display.shape[1]] = display
+        return result
