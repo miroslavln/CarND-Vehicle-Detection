@@ -12,9 +12,9 @@ class VehicleDetector:
         self.ytop = 400
         self.ybottom = 650
         self.sizes = [(140, 650, 0.5),
-                      (120, 600, 0.5),
-                      (96, 550, 0.7),
-                      (64, 500, 0.7)]
+                      (120, 600, 0.7),
+                      (96, 500, 0.7),
+                      (64, 450, 0.7)]
 
         self.clf = clf
         self.scaler = scaler
