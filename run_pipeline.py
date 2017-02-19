@@ -63,8 +63,9 @@ if __name__ == "__main__":
         white_clip = clip1.fl_image(detector.process_image)
         white_clip.write_videofile(white_output, audio=False)
     else:
-        test_image = load_image('test_images/test1.jpg')
+        test_image = load_image('test_images/test3.jpg')
         res = detector.process_image(test_image)
+        #res = detector.process_image(res)
         plt.imshow(res)
         plt.show()
 

@@ -11,7 +11,11 @@ class VehicleDetector:
         self.heatmap = None
         self.ytop = 400
         self.ybottom = 650
-        self.sizes = [64, 32]
+        self.sizes = [(140, 650, 0.5),
+                      (120, 600, 0.5),
+                      (96, 550, 0.7),
+                      (64, 500, 0.7)]
+
         self.clf = clf
         self.scaler = scaler
         self.overlap = overlap
@@ -60,11 +64,11 @@ class VehicleDetector:
 
         return [windows[i] for i in range(len(windows)) if prediction[i] == 1]
 
-    def add_heat(self, bboxes):
+    def add_heat(self, bboxes, heatmap):
         for box in bboxes:
             x1, y1 = box[0]
             x2, y2 = box[1]
-            self.heatmap[y1:y2, x1:x2] += 1
+            heatmap[y1:y2, x1:x2] += 1
 
     def apply_threashold(self, tresh):
         self.heatmap[(self.heatmap < tresh)] = 0
@@ -88,30 +92,33 @@ class VehicleDetector:
         if self.heatmap is None:
             self.heatmap = np.zeros_like(img[:, :, 0])
 
-        self.heatmap = (self.heatmap / 2).astype(np.uint8)
+        heatmap = np.zeros_like(img[:, :, 0])
 
-        height = (self.ybottom - self.ytop)
+        detected_img = np.copy(img)
+
         for i, size in enumerate(self.sizes):
-            y_start_stop = (self.ytop, self.ytop + height // (i + 1))
+            windows_size, ybottom, overlap = size
+            y_start_stop = (self.ytop, ybottom)
 
-            windows = self.get_windows(img, y_start_stop, size, self.overlap)
+            windows = self.get_windows(img, y_start_stop, windows_size, overlap)
             detected = self.search_windows(img, windows)
-            self.add_heat(detected)
+            self.add_heat(detected, heatmap)
+            detected_img = self.draw_boxes(detected_img, detected)
 
-        self.heatmap = np.clip(self.heatmap, 0, 255)
-        self.apply_threashold(5)
+        self.heatmap = self.heatmap / 2.0
+        self.heatmap += heatmap
+        self.apply_threashold(4)
         labels = label(self.heatmap)
         bboxes = self.get_labeled_boxes(labels)
 
         res = self.draw_boxes(img, bboxes)
-        #res = self.display_heat(res, self.heatmap)
+        res = self.display_heat(res, detected_img)
 
         return res
 
     def display_heat(self, img,  mask):
-        mask = np.dstack([mask, mask, mask])
-        mask = cv2.resize(mask*50, None, fx=1 / 2, fy=1 / 2, interpolation=cv2.INTER_CUBIC)
-        return self.add_display(img, mask, x_offset=img.shape[1]*0.5, y_offset=10)
+        mask = cv2.resize(mask, None, fx=1 / 4, fy=1 / 4, interpolation=cv2.INTER_CUBIC)
+        return self.add_display(img, mask, x_offset=img.shape[1]*0.75, y_offset=10)
 
     def add_display(self, result, display, x_offset, y_offset):
         result[y_offset: y_offset + display.shape[0], x_offset: x_offset + display.shape[1]] = display
