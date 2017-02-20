@@ -10,7 +10,7 @@ The goals / steps of this project are the following:
 * Estimate a bounding box for vehicles detected.
 
 [//]: # (Image References)
-[image1]: ./output_images/car_notcar.jpg
+[image1]: ./output_images/car_nocar.jpg
 [image2]: ./output_images/hog_features.jpg
 [image3]: ./output_images/sliding_windows140.jpg
 [image4]: ./output_images/sliding_windows120.jpg
@@ -102,7 +102,7 @@ area of each blob detected.
 
 Here's an example result showing the heatmap from a series of frames of video, the result of `scipy.ndimage.measurements.label()` and the bounding boxes then overlaid on the last frame of video:
 
-### Here are a frame and its corresponding heatmaps:
+### Here is a frame and its corresponding heatmaps:
 
 ![alt text][image8]
 
